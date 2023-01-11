@@ -7,6 +7,7 @@ public struct Session {
     public let topic: String
     public let peer: AppMetadata
     public let namespaces: [String: SessionNamespace]
+    public let created: Date
     public let expiryDate: Date
     public static var defaultTimeToLive: Int64 {
         WCSession.defaultTimeToLive
@@ -33,4 +34,12 @@ extension Session {
         }
     }
 
+}
+
+extension Session: Comparable {
+  
+    public static func < (lhs: Session, rhs: Session) -> Bool {
+        lhs.created < rhs.created
+    }
+  
 }

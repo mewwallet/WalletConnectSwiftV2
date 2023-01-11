@@ -13,6 +13,7 @@ struct WCSession: SequenceObject, Equatable {
     let controller: AgreementPeer
 
     private(set) var acknowledged: Bool
+    private(set) var created: Date
     private(set) var expiryDate: Date
     private(set) var timestamp: Date
     private(set) var namespaces: [String: SessionNamespace]
@@ -27,6 +28,7 @@ struct WCSession: SequenceObject, Equatable {
     }
 
     init(topic: String,
+         created: Date = Date(),
          timestamp: Date,
          selfParticipant: Participant,
          peerParticipant: Participant,
@@ -34,6 +36,7 @@ struct WCSession: SequenceObject, Equatable {
          requiredNamespaces: [String: ProposalNamespace],
          acknowledged: Bool) {
         self.topic = topic
+        self.created = created
         self.timestamp = timestamp
         self.relay = settleParams.relay
         self.controller = AgreementPeer(publicKey: settleParams.controller.publicKey)
@@ -48,6 +51,7 @@ struct WCSession: SequenceObject, Equatable {
 #if DEBUG
     internal init(
         topic: String,
+        created: Date = Date(),
         timestamp: Date,
         relay: RelayProtocolOptions,
         controller: AgreementPeer,
@@ -61,6 +65,7 @@ struct WCSession: SequenceObject, Equatable {
         expiry: Int64
     ) {
         self.topic = topic
+        self.created = created
         self.timestamp = timestamp
         self.relay = relay
         self.controller = controller
@@ -181,6 +186,7 @@ struct WCSession: SequenceObject, Equatable {
             topic: topic,
             peer: peerParticipant.metadata,
             namespaces: namespaces,
+            created: created,
             expiryDate: expiryDate)
     }
 }
@@ -190,7 +196,7 @@ struct WCSession: SequenceObject, Equatable {
 extension WCSession {
 
     enum CodingKeys: String, CodingKey {
-        case topic, relay, selfParticipant, peerParticipant, expiryDate, acknowledged, controller, namespaces, timestamp, requiredNamespaces
+        case topic, relay, selfParticipant, peerParticipant, expiryDate, acknowledged, controller, namespaces, timestamp, requiredNamespaces, created
     }
 
     init(from decoder: Decoder) throws {
@@ -207,6 +213,8 @@ extension WCSession {
         // Migration beta.102
         self.timestamp = try container.decodeIfPresent(Date.self, forKey: .timestamp) ?? .distantPast
         self.requiredNamespaces = try container.decodeIfPresent([String: ProposalNamespace].self, forKey: .requiredNamespaces) ?? [:]
+      
+        self.created = try container.decodeIfPresent(Date.self, forKey: .created) ?? Date()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -221,5 +229,6 @@ extension WCSession {
         try container.encode(expiryDate, forKey: .expiryDate)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(requiredNamespaces, forKey: .requiredNamespaces)
+        try container.encode(created, forKey: .created)
     }
 }
