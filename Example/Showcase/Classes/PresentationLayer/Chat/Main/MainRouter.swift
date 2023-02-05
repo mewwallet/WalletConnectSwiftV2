@@ -6,12 +6,12 @@ final class MainRouter {
 
     private let app: Application
 
-    var walletViewController: UIViewController {
-        return WalletModule.create(app: app).wrapToNavigationController()
+    func chatViewController(account: Account) -> UIViewController {
+        return ChatListModule.create(app: app, account: account).wrapToNavigationController()
     }
 
-    var chatViewController: UIViewController {
-        return WelcomeModule.create(app: app)
+    func web3InboxViewController(account: Account) -> UIViewController {
+        return Web3InboxModule.create(app: app, account: account).wrapToNavigationController()
     }
 
     init(app: Application) {

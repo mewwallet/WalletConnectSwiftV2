@@ -16,9 +16,12 @@ final class WelcomeRouter {
             .present()
     }
 
-    func presentChats(account: Account) {
-        ChatListModule.create(app: app, account: account)
-            .wrapToNavigationController()
+    func presentMain(account: Account) {
+        MainModule.create(app: app, account: account)
             .present()
+    }
+    
+    func openWallet(uri: String) {
+        UIApplication.shared.open(URL(string: "walletapp://wc?uri=\(uri)")!)
     }
 }

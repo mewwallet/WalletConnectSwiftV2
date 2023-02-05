@@ -69,10 +69,11 @@ final class PushTests: XCTestCase {
         let (pairingClient, networkingInteractor, keychain, keyValueStorage) = makeClientDependencies(prefix: prefix)
         let pushLogger = ConsoleLogger(suffix: prefix + " [Push]", loggingLevel: .debug)
         walletPairingClient = pairingClient
-        let echoClient = EchoClientFactory.create(projectId: "", clientId: "")
+        let echoClient = EchoClientFactory.create(projectId: "", clientId: "", echoHost: "echo.walletconnect.com")
         walletPushClient = WalletPushClientFactory.create(logger: pushLogger,
                                                           keyValueStorage: keyValueStorage,
                                                           keychainStorage: keychain,
+                                                          groupKeychainStorage: KeychainStorageMock(),
                                                           networkInteractor: networkingInteractor,
                                                           pairingRegisterer: pairingClient,
                                                           echoClient: echoClient)
@@ -90,7 +91,7 @@ final class PushTests: XCTestCase {
         try! await walletPairingClient.pair(uri: uri)
         try! await dappPushClient.request(account: Account.stub(), topic: uri.topic)
 
-        walletPushClient.requestPublisher.sink { (_, _) in
+        walletPushClient.requestPublisher.sink { (_, _, _) in
             expectation.fulfill()
         }
         .store(in: &publishers)
@@ -104,7 +105,7 @@ final class PushTests: XCTestCase {
         try! await walletPairingClient.pair(uri: uri)
         try! await dappPushClient.request(account: Account.stub(), topic: uri.topic)
 
-        walletPushClient.requestPublisher.sink { [unowned self] (id, _) in
+        walletPushClient.requestPublisher.sink { [unowned self] (id, _, _) in
 
             Task(priority: .high) { try! await walletPushClient.approve(id: id) }
         }.store(in: &publishers)
@@ -127,7 +128,7 @@ final class PushTests: XCTestCase {
         try! await walletPairingClient.pair(uri: uri)
         try! await dappPushClient.request(account: Account.stub(), topic: uri.topic)
 
-        walletPushClient.requestPublisher.sink { [unowned self] (id, _) in
+        walletPushClient.requestPublisher.sink { [unowned self] (id, _, _) in
 
             Task(priority: .high) { try! await walletPushClient.reject(id: id) }
         }.store(in: &publishers)
@@ -146,11 +147,12 @@ final class PushTests: XCTestCase {
     func testDappSendsPushMessage() async {
         let expectation = expectation(description: "expects wallet to receive push message")
         let pushMessage = PushMessage.stub()
+        var pushSubscription: PushSubscription!
         let uri = try! await dappPairingClient.create()
         try! await walletPairingClient.pair(uri: uri)
         try! await dappPushClient.request(account: Account.stub(), topic: uri.topic)
 
-        walletPushClient.requestPublisher.sink { [unowned self] (id, _) in
+        walletPushClient.requestPublisher.sink { [unowned self] (id, _, _) in
             Task(priority: .high) { try! await walletPushClient.approve(id: id) }
         }.store(in: &publishers)
 
@@ -159,13 +161,17 @@ final class PushTests: XCTestCase {
                 XCTFail()
                 return
             }
+            pushSubscription = subscription
             Task(priority: .userInitiated) { try! await dappPushClient.notify(topic: subscription.topic, message: pushMessage) }
         }.store(in: &publishers)
 
-        walletPushClient.pushMessagePublisher.sink { receivedPushMessage in
+        walletPushClient.pushMessagePublisher.sink { [unowned self] receivedPushMessage in
+            let messageHistory = walletPushClient.getMessageHistory(topic: pushSubscription.topic)
             XCTAssertEqual(pushMessage, receivedPushMessage)
+            XCTAssertTrue(messageHistory.contains(receivedPushMessage))
             expectation.fulfill()
         }.store(in: &publishers)
+
 
         wait(for: [expectation], timeout: InputConfig.defaultTimeout)
 
@@ -178,7 +184,7 @@ final class PushTests: XCTestCase {
         try! await dappPushClient.request(account: Account.stub(), topic: uri.topic)
         var subscriptionTopic: String!
 
-        walletPushClient.requestPublisher.sink { [unowned self] (id, _) in
+        walletPushClient.requestPublisher.sink { [unowned self] (id, _, _) in
             Task(priority: .high) { try! await walletPushClient.approve(id: id) }
         }.store(in: &publishers)
 
@@ -205,7 +211,7 @@ final class PushTests: XCTestCase {
         try! await dappPushClient.request(account: Account.stub(), topic: uri.topic)
         var subscriptionTopic: String!
 
-        walletPushClient.requestPublisher.sink { [unowned self] (id, _) in
+        walletPushClient.requestPublisher.sink { [unowned self] (id, _, _) in
             Task(priority: .high) { try! await walletPushClient.approve(id: id) }
         }.store(in: &publishers)
 

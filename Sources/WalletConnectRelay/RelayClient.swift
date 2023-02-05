@@ -213,6 +213,16 @@ public final class RelayClient {
         }
     }
 
+    public func batchSubscribe(topics: [String]) async throws {
+        await withThrowingTaskGroup(of: Void.self) { group in
+            for topic in topics {
+                group.addTask {
+                    try await self.subscribe(topic: topic)
+                }
+            }
+        }
+    }
+
     public func batchUnsubscribe(topics: [String]) async throws {
         await withThrowingTaskGroup(of: Void.self) { group in
             for topic in topics {
@@ -251,7 +261,6 @@ public final class RelayClient {
                 self?.concurrentQueue.async(flags: .barrier) {
                     self?.subscriptions[topic] = nil
                 }
-                completion(nil)
             }
         }
     }
@@ -267,6 +276,8 @@ public final class RelayClient {
                 do {
                     try acknowledgeRequest(request)
                     try rpcHistory.set(request, forTopic: params.data.topic, emmitedBy: .remote)
+                    logger.debug("topic \(params.data.topic)")
+                    logger.debug("message: \(params.data.message)")
                     messagePublisherSubject.send((params.data.topic, params.data.message))
                 } catch {
                     logger.error("[RelayClient] RPC History 'set()' error: \(error)")

@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+
 public class NetworkingInteractor: NetworkInteracting {
     private var publishers = Set<AnyCancellable>()
     private let relayClient: RelayClient
@@ -54,6 +55,10 @@ public class NetworkingInteractor: NetworkInteracting {
                 rpcHistory.deleteAll(forTopic: topic)
             }
         }
+    }
+
+    public func batchSubscribe(topics: [String]) async throws {
+        try await relayClient.batchSubscribe(topics: topics)
     }
 
     public func batchUnsubscribe(topics: [String]) async throws {

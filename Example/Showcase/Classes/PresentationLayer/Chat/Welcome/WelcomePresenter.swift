@@ -1,5 +1,6 @@
 import UIKit
 import Combine
+import Auth
 
 final class WelcomePresenter: ObservableObject {
 
@@ -22,12 +23,12 @@ final class WelcomePresenter: ObservableObject {
     }
 
     var buttonTitle: String {
-        return interactor.isAuthorized() ? "Start Messaging" : "Import account"
+        return interactor.isAuthorized() ? "Start Messaging" : "Connect wallet"
     }
 
     func didPressImport() {
         if let account = interactor.account {
-            router.presentChats(account: account)
+            router.presentMain(account: account)
         } else {
             router.presentImport()
         }
