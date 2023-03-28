@@ -82,9 +82,13 @@ final class WalletViewController: UIViewController {
     private func showSessionRequest(_ request: Request) {
         let requestVC = RequestViewController(request)
         requestVC.onSign = { [unowned self] in
-            let result = Signer.sign(request: request)
-            respondOnSign(request: request, response: result)
-            reloadSessionDetailsIfNeeded()
+            do {
+                let result = try Signer.sign(request: request)
+                respondOnSign(request: request, response: result)
+                reloadSessionDetailsIfNeeded()
+            } catch {
+                fatalError(error.localizedDescription)
+            }
         }
         requestVC.onReject = { [unowned self] in
             respondOnReject(request: request)
@@ -221,7 +225,7 @@ extension WalletViewController: ProposalViewControllerDelegate {
         proposal.requiredNamespaces.forEach {
             let caip2Namespace = $0.key
             let proposalNamespace = $0.value
-            let accounts = Set(proposalNamespace.chains.compactMap { Account($0.absoluteString + ":\(self.accounts[$0.namespace]!)") })
+            let accounts = Set(proposalNamespace.chains!.compactMap { Account($0.absoluteString + ":\(self.accounts[$0.namespace]!)") })
 
             let sessionNamespace = SessionNamespace(accounts: accounts, methods: proposalNamespace.methods, events: proposalNamespace.events)
             sessionNamespaces[caip2Namespace] = sessionNamespace

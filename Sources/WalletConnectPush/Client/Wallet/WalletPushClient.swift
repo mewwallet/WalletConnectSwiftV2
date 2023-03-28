@@ -9,15 +9,21 @@ public class WalletPushClient {
 
     private var publishers = Set<AnyCancellable>()
 
+    public var subscriptionsPublisher: AnyPublisher<[PushSubscription], Never> {
+        return pushSubscriptionsObserver.subscriptionsPublisher
+    }
+
+    private let pushSubscriptionsObserver: PushSubscriptionsObserver
+
     private let requestPublisherSubject = PassthroughSubject<PushRequest, Never>()
 
     public var requestPublisher: AnyPublisher<PushRequest, Never> {
         requestPublisherSubject.eraseToAnyPublisher()
     }
 
-    private let pushMessagePublisherSubject = PassthroughSubject<PushMessage, Never>()
+    private let pushMessagePublisherSubject = PassthroughSubject<PushMessageRecord, Never>()
 
-    public var pushMessagePublisher: AnyPublisher<PushMessage, Never> {
+    public var pushMessagePublisher: AnyPublisher<PushMessageRecord, Never> {
         pushMessagePublisherSubject.eraseToAnyPublisher()
     }
 
@@ -37,7 +43,7 @@ public class WalletPushClient {
     private let proposeResponder: PushRequestResponder
     private let pushMessageSubscriber: PushMessageSubscriber
     private let subscriptionsProvider: SubscriptionsProvider
-    private let pushMessagesProvider: PushMessagesProvider
+    private let pushMessagesDatabase: PushMessagesDatabase
     private let resubscribeService: PushResubscribeService
 
     init(logger: ConsoleLogging,
@@ -47,20 +53,22 @@ public class WalletPushClient {
          proposeResponder: PushRequestResponder,
          pushMessageSubscriber: PushMessageSubscriber,
          subscriptionsProvider: SubscriptionsProvider,
-         pushMessagesProvider: PushMessagesProvider,
+         pushMessagesDatabase: PushMessagesDatabase,
          deletePushSubscriptionService: DeletePushSubscriptionService,
          deletePushSubscriptionSubscriber: DeletePushSubscriptionSubscriber,
-         resubscribeService: PushResubscribeService) {
+         resubscribeService: PushResubscribeService,
+         pushSubscriptionsObserver: PushSubscriptionsObserver) {
         self.logger = logger
         self.pairingRegisterer = pairingRegisterer
         self.proposeResponder = proposeResponder
         self.echoClient = echoClient
         self.pushMessageSubscriber = pushMessageSubscriber
         self.subscriptionsProvider = subscriptionsProvider
-        self.pushMessagesProvider = pushMessagesProvider
+        self.pushMessagesDatabase = pushMessagesDatabase
         self.deletePushSubscriptionService = deletePushSubscriptionService
         self.deletePushSubscriptionSubscriber = deletePushSubscriptionSubscriber
         self.resubscribeService = resubscribeService
+        self.pushSubscriptionsObserver = pushSubscriptionsObserver
         setupSubscriptions()
     }
 
@@ -76,12 +84,16 @@ public class WalletPushClient {
         subscriptionsProvider.getActiveSubscriptions()
     }
 
-    public func getMessageHistory(topic: String) -> [PushMessage] {
-        pushMessagesProvider.getMessageHistory(topic: topic)
+    public func getMessageHistory(topic: String) -> [PushMessageRecord] {
+        pushMessagesDatabase.getPushMessages(topic: topic)
     }
 
-    public func delete(topic: String) async throws {
+    public func deleteSubscription(topic: String) async throws {
         try await deletePushSubscriptionService.delete(topic: topic)
+    }
+
+    public func deletePushMessage(id: String) {
+        pushMessagesDatabase.deletePushMessage(id: id)
     }
 
     public func register(deviceToken: Data) async throws {
@@ -99,8 +111,8 @@ private extension WalletPushClient {
                 requestPublisherSubject.send((id: payload.id, account: payload.request.account, metadata: payload.request.metadata))
         }.store(in: &publishers)
 
-        pushMessageSubscriber.onPushMessage = { [unowned self] pushMessage in
-            pushMessagePublisherSubject.send(pushMessage)
+        pushMessageSubscriber.onPushMessage = { [unowned self] pushMessageRecord in
+            pushMessagePublisherSubject.send(pushMessageRecord)
         }
         deletePushSubscriptionSubscriber.onDelete = {[unowned self] topic in
             deleteSubscriptionPublisherSubject.send(topic)
@@ -115,3 +127,4 @@ extension WalletPushClient {
     }
 }
 #endif
+
